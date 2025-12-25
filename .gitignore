@@ -23,7 +23,8 @@ Thumbs.db
 
 # Environment variables and secrets
 .env
-.env.*
+#.env.*
+#!.env.example
 backend/.env
 client/.env
 

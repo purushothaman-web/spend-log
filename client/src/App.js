@@ -1,35 +1,52 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import SummaryCards from './SummaryCards';
-import ExpenseForm from './ExpenseForm';
-import ExpenseList from './ExpenseList';
-import BudgetInput from './BudgetInput';
-import Filters from './Filters';
-import SearchBar from './SearchBar';
-import ExpenseChart from './ExpenseChart';
-import ExportSection from './ExportSection';
-import ExpenseBarChart from './ExpenseBarChart';
-import IncomeForm from './IncomeForm';
-import IncomeList from './IncomeList';
-import IncomeChart from './IncomeChart';
-import IncomeBarChart from './IncomeBarChart';
-import ExportIncomeSection from './ExportIncomeSection';
-import Login from './Login';
-import Register from './Register';
-import ForgotPassword from './ForgotPassword';
-import ResetPassword from './ResetPassword';
-import { useAuth } from './AuthContext';
+import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams } from 'react-router-dom';
-import Profile from './Profile';
-import SummaryTrendsChart from './SummaryTrendsChart';
-import VerifyEmail from './VerifyEmail';
-import TopCategories from './TopCategories';
-import BudgetProgressBar from './BudgetProgressBar';
-import DatePeriodSelector from './DatePeriodSelector';
-import { useToast } from './ToastContext';
-import AdminPanel from './AdminPanel';
-import Navbar from './Navbar';
-import { Helmet } from 'react-helmet';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Context & Hooks
+import { useAuth } from './context/AuthContext';
+import { useToast } from './context/ToastContext';
+import { useFinanceData } from './hooks/useFinanceData';
+
+// Layout
+import Navbar from './components/layout/Navbar';
+
+// Auth Components
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
+
+// Pages
+import Profile from './pages/Profile';
+import VerifyEmail from './pages/VerifyEmail';
+import AdminPanel from './pages/AdminPanel';
+import NotFound from './pages/NotFound';
+
+// Dashboard Components
+import SummaryCards from './components/dashboard/SummaryCards';
+import BudgetInput from './components/dashboard/BudgetInput';
+import Filters from './components/dashboard/Filters';
+import SearchBar from './components/common/SearchBar';
+import SummaryTrendsChart from './components/dashboard/SummaryTrendsChart';
+import TopCategories from './components/dashboard/TopCategories';
+import BudgetProgressBar from './components/dashboard/BudgetProgressBar';
+import DatePeriodSelector from './components/dashboard/DatePeriodSelector';
+
+// Expense Components
+import ExpenseForm from './components/expenses/ExpenseForm';
+import ExpenseList from './components/expenses/ExpenseList';
+import ExpenseChart from './components/expenses/ExpenseChart';
+import ExpenseBarChart from './components/expenses/ExpenseBarChart';
+import ExportSection from './components/expenses/ExportSection';
+
+// Income Components
+import IncomeForm from './components/income/IncomeForm';
+import IncomeList from './components/income/IncomeList';
+import IncomeChart from './components/income/IncomeChart';
+import IncomeBarChart from './components/income/IncomeBarChart';
+import ExportIncomeSection from './components/income/ExportIncomeSection';
+
 
 function ResetPasswordWrapper() {
   const { token } = useParams();
@@ -37,26 +54,30 @@ function ResetPasswordWrapper() {
 }
 
 function AppContent() {
-  const { user, token, fetchWithAuth } = useAuth();
+  const { user } = useAuth();
+  const {
+    expenses, incomes, budget,
+    addExpense, deleteExpense, updateExpense,
+    addIncome, deleteIncome, updateIncome,
+    saveBudget
+  } = useFinanceData();
+
   const [showLogin, setShowLogin] = useState(true);
   const [showForgot, setShowForgot] = useState(false);
-  const [expenses, setExpenses] = useState([]);
-  const [incomes, setIncomes] = useState([]);
-  const [budget, setBudget] = useState(() => {
-    const saved = localStorage.getItem('budget');
-    return saved ? Number(saved) : 0;
-  });
+
   const [filters, setFilters] = useState({ category: '', startDate: '', endDate: '' });
   const [incomeFilters, setIncomeFilters] = useState({ category: '', startDate: '', endDate: '' });
   const [search, setSearch] = useState('');
-  const [incomeSearch, setIncomeSearch] = useState('');
+  const [incomeSearch] = useState('');
   const [activeTab, setActiveTab] = useState('expenses');
   const now = new Date();
   const [period, setPeriod] = useState({ type: 'month', month: now.getMonth(), year: now.getFullYear(), startDate: '', endDate: '' });
-  const { showToast } = useToast();
+
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true';
   });
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [editingIncome, setEditingIncome] = useState(null);
 
   useEffect(() => {
     if (darkMode) {
@@ -66,88 +87,6 @@ function AppContent() {
     }
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
-
-  // Fetch expenses and income from backend (with JWT)
-  useEffect(() => {
-    if (!token) return;
-    fetchWithAuth('/api/expenses')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setExpenses(data);
-        } else {
-          setExpenses([]);
-        }
-      })
-      .catch(() => setExpenses([]));
-    fetchWithAuth('/api/income')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setIncomes(data);
-        } else {
-          setIncomes([]);
-        }
-      })
-      .catch(() => setIncomes([]));
-  }, [token, fetchWithAuth]);
-
-  // Add expense
-  const handleAddExpense = (expense) => {
-    fetchWithAuth('/api/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(expense),
-    })
-      .then(res => res.json())
-      .then(newExpense => {
-        setExpenses(prev => [newExpense, ...prev]);
-        showToast('Expense added!', 'success');
-      })
-      .catch(() => showToast('Failed to add expense', 'error'));
-  };
-
-  // Delete expense
-  const handleDeleteExpense = (id) => {
-    fetchWithAuth(`/api/expenses/${id}`, { method: 'DELETE' })
-      .then(() => {
-        setExpenses(prev => prev.filter(e => (e._id || e.id) !== id));
-        showToast('Expense deleted!', 'success');
-      })
-      .catch(() => showToast('Failed to delete expense', 'error'));
-  };
-
-  // Add income
-  const handleAddIncome = (income) => {
-    fetchWithAuth('/api/income', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(income),
-    })
-      .then(res => res.json())
-      .then(newIncome => {
-        setIncomes(prev => [newIncome, ...prev]);
-        showToast('Income added!', 'success');
-      })
-      .catch(() => showToast('Failed to add income', 'error'));
-  };
-
-  // Delete income
-  const handleDeleteIncome = (id) => {
-    fetchWithAuth(`/api/income/${id}`, { method: 'DELETE' })
-      .then(() => {
-        setIncomes(prev => prev.filter(e => (e._id || e.id) !== id));
-        showToast('Income deleted!', 'success');
-      })
-      .catch(() => showToast('Failed to delete income', 'error'));
-  };
-
-  // Save budget
-  const handleSaveBudget = (value) => {
-    setBudget(value);
-    localStorage.setItem('budget', value);
-    showToast('Budget updated!', 'success');
-  };
 
   // Filtering logic (for expenses)
   const filteredExpenses = expenses.filter(exp => {
@@ -201,8 +140,7 @@ function AppContent() {
   // Filter apply/clear
   const handleApplyFilters = () => setFilters({ ...filters });
   const handleClearFilters = () => setFilters({ category: '', startDate: '', endDate: '' });
-  const handleApplyIncomeFilters = () => setIncomeFilters({ ...incomeFilters });
-  const handleClearIncomeFilters = () => setIncomeFilters({ category: '', startDate: '', endDate: '' });
+  // Unused handlers removed: setIncomeSearch, handleApplyIncomeFilters, handleClearIncomeFilters
 
   if (!user) {
     return (
@@ -255,11 +193,13 @@ function AppContent() {
           </Suspense>
           {activeTab === 'expenses' && (
             <>
-              <ExpenseForm onAdd={handleAddExpense} />
+
+              <ExpenseForm onAdd={addExpense} editingItem={editingExpense} onUpdate={updateExpense} onCancel={() => setEditingExpense(null)} />
               <SearchBar value={search} onChange={setSearch} />
               <Filters filters={filters} onChange={setFilters} onApply={handleApplyFilters} onClear={handleClearFilters} />
-              <BudgetInput budget={budget} onSave={handleSaveBudget} />
-              <ExpenseList expenses={filteredExpenses} onDelete={handleDeleteExpense} />
+              <BudgetInput budget={budget} onSave={saveBudget} />
+              <ExpenseList expenses={filteredExpenses} onDelete={deleteExpense} onEdit={setEditingExpense} />
+
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1">
                   <Suspense fallback={<div>Loading chart...</div>}>
@@ -277,9 +217,10 @@ function AppContent() {
           )}
           {activeTab === 'income' && (
             <>
-              <IncomeForm onAdd={handleAddIncome} />
+              <IncomeForm onAdd={addIncome} editingItem={editingIncome} onUpdate={updateIncome} onCancel={() => setEditingIncome(null)} />
               <Suspense fallback={<div>Loading chart...</div>}>
                 <IncomeChart incomes={filteredIncomes} />
+                <IncomeList incomes={filteredIncomes} onDelete={deleteIncome} onEdit={setEditingIncome} />
               </Suspense>
               <Suspense fallback={<div>Loading chart...</div>}>
                 <IncomeBarChart incomes={filteredIncomes} />
@@ -310,45 +251,48 @@ function App() {
 
   return (
     <>
-      <Helmet>
-        <title>Spend Log - Track Your Expenses & Income</title>
-        <meta name="description" content="Spend Log helps you track every penny, manage your expenses and income, and grow your savings." />
-        <meta property="og:title" content="Spend Log - Track Your Expenses & Income" />
-        <meta property="og:description" content="Spend Log helps you track every penny, manage your expenses and income, and grow your savings." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://yourdomain.com/" />
-        <meta property="og:image" content="https://yourdomain.com/og-image.png" />
-        <meta name="twitter:card" content="summary_large_image" />
-      </Helmet>
-      <Router>
-        <AnimatePresence mode="wait">
-          <Routes>
-            <Route path="/reset-password/:token" element={<ResetPasswordWrapper />} />
-            <Route path="/profile" element={<Profile user={user} logout={logout} darkMode={darkMode} setDarkMode={setDarkMode} />} />
-            <Route path="/verify-email/:token" element={<VerifyEmail />} />
-            <Route path="/admin" element={
-              <Suspense fallback={<div>Loading Admin Panel...</div>}>
-                <AdminPanel user={user} logout={logout} darkMode={darkMode} setDarkMode={setDarkMode} />
-              </Suspense>
-            } />
-            <Route path="/" element={
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
-                <AppContent />
-              </motion.div>
-            } />
-            <Route path="/login" element={
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
-                <Login />
-              </motion.div>
-            } />
-            <Route path="/register" element={
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
-                <Register />
-              </motion.div>
-            } />
-          </Routes>
-        </AnimatePresence>
-      </Router>
+      <HelmetProvider>
+        <Helmet>
+          <title>Spend Log - Track Your Expenses & Income</title>
+          <meta name="description" content="Spend Log helps you track every penny, manage your expenses and income, and grow your savings." />
+          <meta property="og:title" content="Spend Log - Track Your Expenses & Income" />
+          <meta property="og:description" content="Spend Log helps you track every penny, manage your expenses and income, and grow your savings." />
+          <meta property="og:type" content="website" />
+          <meta property="og:url" content="https://yourdomain.com/" />
+          <meta property="og:image" content="https://yourdomain.com/og-image.png" />
+          <meta name="twitter:card" content="summary_large_image" />
+        </Helmet>
+        <Router>
+          <AnimatePresence mode="wait">
+            <Routes>
+              <Route path="/reset-password/:token" element={<ResetPasswordWrapper />} />
+              <Route path="/profile" element={<Profile user={user} logout={logout} darkMode={darkMode} setDarkMode={setDarkMode} />} />
+              <Route path="/verify-email/:token" element={<VerifyEmail />} />
+              <Route path="/admin" element={
+                <Suspense fallback={<div>Loading Admin Panel...</div>}>
+                  <AdminPanel user={user} logout={logout} darkMode={darkMode} setDarkMode={setDarkMode} />
+                </Suspense>
+              } />
+              <Route path="/" element={
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
+                  <AppContent />
+                </motion.div>
+              } />
+              <Route path="/login" element={
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
+                  <Login />
+                </motion.div>
+              } />
+              <Route path="/register" element={
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
+                  <Register />
+                </motion.div>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AnimatePresence>
+        </Router>
+      </HelmetProvider>
     </>
   );
 }

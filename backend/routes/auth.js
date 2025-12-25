@@ -117,53 +117,53 @@ router.post('/login', [
   next();
 }, async (req, res) => {
   const { email, password } = req.body;
-  
+
   // Check for required environment variables
   if (!process.env.JWT_SECRET) {
     console.error('JWT_SECRET environment variable is missing');
     return res.status(500).json({ message: 'Server configuration error' });
   }
-  
+
   if (!process.env.JWT_REFRESH_SECRET) {
     console.error('JWT_REFRESH_SECRET environment variable is missing');
     return res.status(500).json({ message: 'Server configuration error' });
   }
-  
+
   try {
     console.log('Login attempt for email:', email);
-    
+
     const user = await User.findOne({ email });
     if (!user) {
       console.log('User not found for email:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    
+
     if (!user.isVerified) {
       console.log('Unverified user attempt to login:', email);
       return res.status(403).json({ message: 'Please verify your email before logging in.' });
     }
-    
+
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       console.log('Invalid password for user:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-    
+
     console.log('Generating tokens for user:', user._id);
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
-    
+
     user.refreshTokens = user.refreshTokens || [];
     user.refreshTokens.push(refreshToken);
     await user.save();
-    
+
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    
+
     console.log('Login successful for user:', email);
     res.json({ token: accessToken, email: user.email, avatar: user.avatar, isAdmin: user.isAdmin });
   } catch (err) {
@@ -343,14 +343,19 @@ router.post('/update-password', auth, [
   }
 });
 
-// Avatar upload route
-router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
+// Avatar update route (DiceBear URL)
+router.post('/avatar', auth, async (req, res) => {
   try {
+    const { avatar } = req.body;
+    if (!avatar) return res.status(400).json({ message: 'Avatar URL is required' });
+
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    user.avatar = req.file.filename;
+
+    user.avatar = avatar;
     await user.save();
-    res.json({ avatar: req.file.filename });
+
+    res.json({ avatar: user.avatar });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

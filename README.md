@@ -1,8 +1,6 @@
 # 💸 Spend Log
 
-[![Live Site](https://img.shields.io/badge/Live%20Site-spend--log.netlify.app-blue?style=for-the-badge&logo=netlify)](https://spend-log.netlify.app/)
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/77d4b53a-49b5-4d5b-92b0-60c5b7ab0e8b/deploy-status)](https://app.netlify.com/projects/spend-log/deploys)
 
 _Track every penny, grow your savings._
 
@@ -62,47 +60,64 @@ Spend Log is a modern, full-stack web app for managing your daily expenses and i
 
 ### 1. **Clone the repository**
 ```bash
-git clone https://github.com/FrontEndExplorer-Temp/spend-log.git
+git clone https://github.com/purushothaman-web/spend-log.git
 cd spend-log
 ```
 
 ### 2. **Set up environment variables**
-Create a `.env` file in the `backend/` directory:
-```env
-MONGO_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_jwt_secret
-JWT_REFRESH_SECRET=your_jwt_refresh_secret
-MAIL_HOST=your_smtp_host
-MAIL_PORT=your_smtp_port
-MAIL_USER=your_email_user
-MAIL_PASS=your_email_password
-MAIL_FROM=your_from_email
-CORS_ORIGIN=http://localhost:3000
-FRONTEND_URL=http://localhost:3000
-```
-**Never commit your `.env` file!**
+
+#### Backend
+1. Go to the `backend/` directory.
+2. Copy `.env.example` to `.env`.
+   ```bash
+   cd backend
+   cp .env.example .env
+   ```
+3. Open `.env` and fill in your values (MongoDB URI, JWT secrets, Email settings).
+
+#### Client
+1. Go to the `client/` directory.
+2. Copy `.env.example` to `.env`.
+   ```bash
+   cd ../client
+   cp .env.example .env
+   ```
+3. Update `REACT_APP_API_URL` if your backend is running on a different port (default is 5000).
+
+---
 
 ### 3. **Install dependencies**
 ```bash
-cd backend && npm install
-cd ../client && npm install
+# Install backend dependencies
+cd ../backend
+npm install
+
+# Install client dependencies
+cd ../client
+npm install
 ```
 
-### 4. **Run the backend**
+---
+
+### 4. **Run the application**
+
+#### Run Backend
 ```bash
 cd backend
-node server.js
-# or use nodemon for development
+npm start
+# or for development with auto-reload:
+# npm run dev
 ```
 
-### 5. **Run the frontend**
+#### Run Frontend
 ```bash
 cd client
 npm start
 ```
 
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
+- **Frontend:** http://localhost:3000
+- **Backend API:** http://localhost:5000
+- **Swagger Docs:** http://localhost:5000/api-docs
 
 ---
 
